@@ -2,6 +2,7 @@
 #include "ch.h"
 #include "hal.h"
 #include "chprintf.h"
+#include "tm.h"
 
 #include "myADC.h"
 
@@ -18,7 +19,7 @@ int running=0;
  * Defines for single scan conversion
  */
 #define ADC_GRP1_NUM_CHANNELS   1
-#define ADC_GRP1_BUF_DEPTH      2048
+#define ADC_GRP1_BUF_DEPTH      2048*2*4
 
 /*
  * Buffer for single conversion
@@ -64,8 +65,9 @@ static const ADCConversionGroup adcgrpcfg1 = {
 void cmd_measure(BaseSequentialStream *chp, int argc, char *argv[]) {
 
   (void)argv;
-  unsigned long sum=0;
+  unsigned long long sum=0;
   unsigned int i;
+  TimeMeasurement tm;
   if(running){
     chprintf(chp, "Continuous measurement already running\r\n");
     return;
@@ -75,17 +77,23 @@ void cmd_measure(BaseSequentialStream *chp, int argc, char *argv[]) {
     return;
   }
   running=1;
+  tmObjectInit(&tm);
+  tmStartMeasurement(&tm);
+  //for(i=0;i<160;i++)
   adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
+  tmStopMeasurement(&tm);
   running=0;
   //prints the first measured value
-  chprintf(chp, "Measured: %d  ", samples1[0]*4);
-      sum=0;
+  chprintf(chp, "Measured: %d  %U  ", samples1[0]*16, tm.last);
+  sum=0;
+  tmStartMeasurement(&tm);
   for (i=0;i<ADC_GRP1_BUF_DEPTH;i++){
       //chprintf(chp, "%d  ", samples1[i]);
       sum += samples1[i];
   }
+  tmStopMeasurement(&tm);
   //prints the averaged value with two digits precision
-  chprintf(chp, "%U\r\n", sum/(ADC_GRP1_BUF_DEPTH/4));
+  chprintf(chp, "%U  %U\r\n", sum/(ADC_GRP1_BUF_DEPTH/16), tm.last);
 }
 
 
@@ -112,7 +120,7 @@ static void adccallback(ADCDriver *adcp, adcsample_t *buffer, size_t n) {
   (void)n;
 
   unsigned int i;
-  unsigned long sum=0;
+  uint32_t sum=0;
   if (samples2 == buffer) {
     for(i=0;i<ADC_GRP2_BUF_DEPTH*ADC_GRP2_NUM_CHANNELS/2;i++){
       sum+=buffer[i];
@@ -154,8 +162,10 @@ void cmd_measureCont(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)chp;
   (void)argc;
   (void)argv;
-  if(!running){
-      running=1;
+  if(running){
+    chprintf(chp, "Continuous measurement already running\r\n");
+  }else {
+    running=1;
     adcStartConversion(&ADCD1, &adcgrpcfg2, samples2, ADC_GRP2_BUF_DEPTH);
   }
 }
