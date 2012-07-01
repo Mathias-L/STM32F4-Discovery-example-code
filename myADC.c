@@ -132,9 +132,11 @@ void cmd_measureA(BaseSequentialStream *chp, int argc, char *argv[]) {
 
   //Conversion to mV: Max Value exuals ~3V
   // This is no proper calibration!
-  sum = sum/(ADC_GRP1_BUF_DEPTH/16)*3000/65536;
+  // The uint64_t cast prevents overflows
+  //sum = ((uint64_t)sum)/(ADC_GRP1_BUF_DEPTH/16)*30000/65536;
+  sum = ((uint64_t)sum)*1875/4194304;  //This is the inlined version of the above
   //prints the averaged value with two digits precision
-  chprintf(chp, "Measured: %U.%03UV\r\n", sum/1000, sum%1000);
+  chprintf(chp, "Measured: %U.%04UV\r\n", sum/10000, sum%10000);
 }
 
 
