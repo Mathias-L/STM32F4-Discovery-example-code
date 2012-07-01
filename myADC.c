@@ -83,7 +83,7 @@ void cmd_measure(BaseSequentialStream *chp, int argc, char *argv[]) {
   adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
   running=0;
   //prints the first measured value
-  chprintf(chp, "Measured: %d  %U  ", samples1[0]*16, tm.last);
+  chprintf(chp, "Measured: %d  ", samples1[0]*16);
   sum=0;
   for (i=0;i<ADC_GRP1_BUF_DEPTH;i++){
       //chprintf(chp, "%d  ", samples1[i]);
