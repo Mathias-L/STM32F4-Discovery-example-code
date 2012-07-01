@@ -134,7 +134,7 @@ void cmd_measureA(BaseSequentialStream *chp, int argc, char *argv[]) {
   // This is no proper calibration!
   sum = sum/(ADC_GRP1_BUF_DEPTH/16)*3000/65536;
   //prints the averaged value with two digits precision
-  chprintf(chp, "Measured: %U.%02UV\r\n", sum/1000, sum%1000);
+  chprintf(chp, "Measured: %U.%03UV\r\n", sum/1000, sum%1000);
 }
 
 
