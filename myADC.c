@@ -93,6 +93,34 @@ void cmd_measure(BaseSequentialStream *chp, int argc, char *argv[]) {
   chprintf(chp, "%U\r\n", sum/(ADC_GRP1_BUF_DEPTH/16));
 }
 
+void cmd_measureA(BaseSequentialStream *chp, int argc, char *argv[]) {
+
+  (void)argv;
+  uint32_t sum=0;
+  unsigned int i;
+  if(running){
+    chprintf(chp, "Continuous measurement already running\r\n");
+    return;
+  }
+  if (argc >0 ) {
+    chprintf(chp, "Usage: measure\r\n");
+    return;
+  }
+  running=1;
+  //for(i=0;i<160;i++)
+  adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
+  running=0;
+  sum=0;
+  for (i=0;i<ADC_GRP1_BUF_DEPTH;i++){
+      //chprintf(chp, "%d  ", samples1[i]);
+      sum += samples1[i];
+  }
+
+  //Conversion to mV: Max Value exuals ~3V
+  sum = sum/(ADC_GRP1_BUF_DEPTH/16)*3000/65536;
+  //prints the averaged value with two digits precision
+  chprintf(chp, "Measured: %U.%02UV\r\n", sum/1000, sum%1000);
+}
 
 /*
  * Defines for continuous scan conversions

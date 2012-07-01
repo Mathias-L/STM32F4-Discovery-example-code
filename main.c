@@ -53,6 +53,8 @@ static const ShellCommand commands[] = {
   {"r", cmd_ramp},
   {"measure", cmd_measure},
   {"m", cmd_measure},
+  {"measureAnalog", cmd_measureA},
+  {"ma", cmd_measureA},
   {"measureContinuous", cmd_measureCont},
   {"mc", cmd_measureCont},
   {"readContinuousData", cmd_measureRead},
