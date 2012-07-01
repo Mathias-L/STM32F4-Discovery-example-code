@@ -24,14 +24,14 @@
 
 #include "ch.h"
 #include "hal.h"
-#include "shell.h"
 
+#include "shell.h"
 #include "chprintf.h"
 
-#include "mypwm.h"
+#include "myPWM.h"
 #include "myADC.h"
-#include "myusb.h"
-#include "mymisc.h"
+#include "myUSB.h"
+#include "myMisc.h"
 
 
 

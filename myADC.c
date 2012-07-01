@@ -26,12 +26,30 @@ int running=0;
 static adcsample_t samples1[ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH];
 
 /*
+ * Defines for continuous scan conversions
+ */
+#define ADC_GRP2_NUM_CHANNELS   8
+#define ADC_GRP2_BUF_DEPTH      1024
+static adcsample_t samples2[ADC_GRP2_NUM_CHANNELS * ADC_GRP2_BUF_DEPTH];
+
+/*
+ * second storage ring buffer for continuous scan
+ */
+#define BUFFLEN    1024
+unsigned int p1=0,p2=0;
+unsigned int overflow=0;
+unsigned long data[BUFFLEN];
+
+/*
  * Error callback, does nothing
  */
 static void adcerrorcallback(ADCDriver *adcp, adcerror_t err) {
 
   (void)adcp;
   (void)err;
+  if(running){
+    data[p1++]=0;
+  }
 }
 
 /*
@@ -78,10 +96,8 @@ void cmd_measure(BaseSequentialStream *chp, int argc, char *argv[]) {
     chprintf(chp, "Usage: measure\r\n");
     return;
   }
-  running=1;
   //for(i=0;i<160;i++)
   adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
-  running=0;
   //prints the first measured value
   chprintf(chp, "Measured: %d  ", samples1[0]*16);
   sum=0;
@@ -106,10 +122,8 @@ void cmd_measureA(BaseSequentialStream *chp, int argc, char *argv[]) {
     chprintf(chp, "Usage: measure\r\n");
     return;
   }
-  running=1;
   //for(i=0;i<160;i++)
   adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
-  running=0;
   sum=0;
   for (i=0;i<ADC_GRP1_BUF_DEPTH;i++){
       //chprintf(chp, "%d  ", samples1[i]);
@@ -117,17 +131,12 @@ void cmd_measureA(BaseSequentialStream *chp, int argc, char *argv[]) {
   }
 
   //Conversion to mV: Max Value exuals ~3V
+  // This is no proper calibration!
   sum = sum/(ADC_GRP1_BUF_DEPTH/16)*3000/65536;
   //prints the averaged value with two digits precision
   chprintf(chp, "Measured: %U.%02UV\r\n", sum/1000, sum%1000);
 }
 
-/*
- * Defines for continuous scan conversions
- */
-#define ADC_GRP2_NUM_CHANNELS   8
-#define ADC_GRP2_BUF_DEPTH      1024
-static adcsample_t samples2[ADC_GRP2_NUM_CHANNELS * ADC_GRP2_BUF_DEPTH];
 
 /*
  * This callback is called everytime the buffer is filled or half-filled
@@ -135,10 +144,7 @@ static adcsample_t samples2[ADC_GRP2_NUM_CHANNELS * ADC_GRP2_BUF_DEPTH];
  * I should use a third buffer to store a timestamp when the buffer was filled.
  * I hope I understood how the Conversion ring buffer works...
  */
-#define PLEN    1024
-unsigned int p1=0,p2=0;
-unsigned int overflow=0;
-unsigned long data[PLEN];
+
 static void adccallback(ADCDriver *adcp, adcsample_t *buffer, size_t n) {
 
   (void)adcp;
@@ -158,7 +164,7 @@ static void adccallback(ADCDriver *adcp, adcsample_t *buffer, size_t n) {
     }
     data[p1++] = sum/(ADC_GRP2_BUF_DEPTH/4);
   }
-  p1 = p1%PLEN;
+  p1 = p1%BUFFLEN;
   if(p1==p2) ++overflow;
 }
 
@@ -219,7 +225,10 @@ void cmd_measureRead(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)argv;
   while(p1!=p2){
     chprintf(chp, "%U:%U  ", p2, data[p2]);
-    p2 = (p2+1)%PLEN;
+    if (data[p2]==0){
+      chprintf(chp, "\r\n Error!\r\n  ", p2, data[p2]);
+    }
+    p2 = (p2+1)%BUFFLEN;
   }
   chprintf(chp, "\r\n");
   if(overflow){

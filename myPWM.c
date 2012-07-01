@@ -3,7 +3,7 @@
 #include "chprintf.h"
 #include <stdlib.h>
 
-#include "mypwm.h"
+#include "myPWM.h"
 
 
 /*

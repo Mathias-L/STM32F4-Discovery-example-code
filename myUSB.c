@@ -5,7 +5,7 @@
 #include "usb_cdc.h"
 #include "shell.h"
 
-#include "myusb.h"
+#include "myUSB.h"
 
 /*
  * Don't ask me, I have no idea what is done here...

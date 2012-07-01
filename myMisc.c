@@ -6,7 +6,7 @@
 
 #include "chprintf.h"
 
-#include "mymisc.h"
+#include "myMisc.h"
 
 
 /*===========================================================================*/
@@ -94,7 +94,6 @@ static msg_t Thread1(void *arg) {
     chThdSleepMilliseconds(blinkspeed);
     palSetPad(GPIOD, GPIOD_LED6);
     chThdSleepMilliseconds(blinkspeed);
-//    chprintf((BaseSequentialStream *)&SDU1, "blinker off\r\n");
 
   }
   return 0;
