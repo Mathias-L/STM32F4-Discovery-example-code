@@ -2,7 +2,6 @@
 #include "ch.h"
 #include "hal.h"
 #include "chprintf.h"
-#include "tm.h"
 
 #include "myADC.h"
 
@@ -61,13 +60,16 @@ static const ADCConversionGroup adcgrpcfg1 = {
  * even though the ADC hardware has only 12 bits internal precision
  * also at 2048 samples the 14 bit are nearly noise free, while
  * each sample is very noisy.
+ * WARNING: If you average to many samples, the variable containing
+ *  the sum may overflow. That means that your readings will be wrong.
+ * However: With the ADC delivering a max value of 2^12, with uint32_t
+ *  you can average 2^20 = 1048576 samples.
  */
 void cmd_measure(BaseSequentialStream *chp, int argc, char *argv[]) {
 
   (void)argv;
-  unsigned long long sum=0;
+  uint32_t sum=0;
   unsigned int i;
-  TimeMeasurement tm;
   if(running){
     chprintf(chp, "Continuous measurement already running\r\n");
     return;
@@ -77,23 +79,18 @@ void cmd_measure(BaseSequentialStream *chp, int argc, char *argv[]) {
     return;
   }
   running=1;
-  tmObjectInit(&tm);
-  tmStartMeasurement(&tm);
   //for(i=0;i<160;i++)
   adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
-  tmStopMeasurement(&tm);
   running=0;
   //prints the first measured value
   chprintf(chp, "Measured: %d  %U  ", samples1[0]*16, tm.last);
   sum=0;
-  tmStartMeasurement(&tm);
   for (i=0;i<ADC_GRP1_BUF_DEPTH;i++){
       //chprintf(chp, "%d  ", samples1[i]);
       sum += samples1[i];
   }
-  tmStopMeasurement(&tm);
   //prints the averaged value with two digits precision
-  chprintf(chp, "%U  %U\r\n", sum/(ADC_GRP1_BUF_DEPTH/16), tm.last);
+  chprintf(chp, "%U\r\n", sum/(ADC_GRP1_BUF_DEPTH/16));
 }
 
 
