@@ -14,8 +14,8 @@
 static void pwmpcb(PWMDriver *pwmp) {
 
   (void)pwmp;
-  palClearPad(GPIOD, GPIOD_LED4);
-  palClearPad(GPIOD, GPIOD_LED5);
+  palSetPad(GPIOD, GPIOD_LED4);
+  palSetPad(GPIOD, GPIOD_LED5);
 }
 
 /*
@@ -24,7 +24,7 @@ static void pwmpcb(PWMDriver *pwmp) {
 static void pwmc1cb(PWMDriver *pwmp) {
 
   (void)pwmp;
-  palSetPad(GPIOD, GPIOD_LED4);
+  palClearPad(GPIOD, GPIOD_LED4);
 }
 
 /*
@@ -33,7 +33,7 @@ static void pwmc1cb(PWMDriver *pwmp) {
 static void pwmc2cb(PWMDriver *pwmp) {
 
   (void)pwmp;
-  palSetPad(GPIOD, GPIOD_LED5);
+  palClearPad(GPIOD, GPIOD_LED5);
 }
 
 /*
