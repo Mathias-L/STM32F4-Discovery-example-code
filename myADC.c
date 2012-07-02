@@ -96,7 +96,7 @@ void cmd_measure(BaseSequentialStream *chp, int argc, char *argv[]) {
     chprintf(chp, "Usage: measure\r\n");
     return;
   }
-  //for(i=0;i<160;i++)
+
   adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
   //prints the first measured value
   chprintf(chp, "Measured: %d  ", samples1[0]*16);
@@ -109,6 +109,32 @@ void cmd_measure(BaseSequentialStream *chp, int argc, char *argv[]) {
   chprintf(chp, "%U\r\n", sum/(ADC_GRP1_BUF_DEPTH/16));
 }
 
+ /*
+  * measures ADC_GRP1_BUF_DEPTH samples and displays all of them
+  */
+void cmd_measureDirect(BaseSequentialStream *chp, int argc, char *argv[]) {
+
+  (void)argv;
+  unsigned int i;
+  if(running){
+    chprintf(chp, "Continuous measurement already running\r\n");
+    return;
+  }
+  if (argc >0 ) {
+    chprintf(chp, "Usage: measure\r\n");
+    return;
+  }
+  adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
+  chprintf(chp, "Measured:  ");
+  for (i=0;i<ADC_GRP1_BUF_DEPTH;i++){
+      chprintf(chp, "%d  ", samples1[i]);
+  }
+  chprintf(chp, "\r\n");
+}
+
+ /*
+  * averages ADC_GRP1_BUF_DEPTH samples and converts to analog voltage
+  */
 void cmd_measureA(BaseSequentialStream *chp, int argc, char *argv[]) {
 
   (void)argv;
@@ -130,12 +156,14 @@ void cmd_measureA(BaseSequentialStream *chp, int argc, char *argv[]) {
       sum += samples1[i];
   }
 
-  //Conversion to mV: Max Value exuals ~3V
-  // This is no proper calibration!
-  // The uint64_t cast prevents overflows
+  /*
+   * Conversion to 1/10mV: Max Value exuals ~3V
+   *  This is no proper calibration!!
+   *  The uint64_t cast prevents overflows
+   */
   //sum = ((uint64_t)sum)/(ADC_GRP1_BUF_DEPTH/16)*30000/65536;
-  sum = ((uint64_t)sum)*1875/4194304;  //This is the inlined version of the above
-  //prints the averaged value with two digits precision
+  sum = (((uint64_t)sum)*1875)>>22;  //This is the inlined version of the above
+  //prints the averaged value with 4 digits precision
   chprintf(chp, "Measured: %U.%04UV\r\n", sum/10000, sum%10000);
 }
 
@@ -240,7 +268,7 @@ void cmd_measureRead(BaseSequentialStream *chp, int argc, char *argv[]) {
 }
 
 void myADCinit(void){
-  palSetGroupMode(GPIOC, PAL_PORT_BIT(1) | PAL_PORT_BIT(2),
+  palSetGroupMode(GPIOC, PAL_PORT_BIT(1),
                   0, PAL_MODE_INPUT_ANALOG);
   adcStart(&ADCD1, NULL);
   //enable temperature sensor
