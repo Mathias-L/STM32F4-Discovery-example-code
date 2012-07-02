@@ -35,7 +35,7 @@ console commands
 * toggle 1/2/3/4 (toggles #led, short: t)
 * blinkspeed #speed (changes blinker period to #speed ms, short: bs)
 * cycle #duty (changes the duty cycle of PWM1 to #duty, short: c)
-* ramp #from #to #step [delay] (creates a ramp for PWM1 with the given parameters, short: r)
+* ramp #from #to #step \[delay\] (creates a ramp for PWM1 with the given parameters, short: r)
 * measure (measures 16384 analog samples on pin PC1 and prints the first and the average, short: m)
 * measureAnalog (measures 16384 samples and converts the average to Volts, short: ma)
 * measureDirect (measures 16384 samples and prints them all, short: md)
@@ -54,6 +54,7 @@ ChibiOS, the STM32F4 or uCs in general. I wrote this code to make myself
 familiar with the STM32F4 Discovery and I figured ChibiOS was a usefull tool.
 From my POV the code is not that bad, but your opinion may differ. In
 that case, please don't laugh at my code but provide constructive criticism.
+I just realized: I'm no pro at Git, Github and Markdown either...
 
 Since I started from the USB-CDC code example from ChibiOS which is GPLv3,
 I think I am forced to release this code under GPLv3 though I don't care what you do
