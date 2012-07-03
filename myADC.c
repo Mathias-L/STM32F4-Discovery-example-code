@@ -147,6 +147,34 @@ void cmd_measureDirect(BaseSequentialStream *chp, int argc, char *argv[]) {
 }
 
  /*
+  * prints the last measured Temperature from measureContinuous
+  * According to ST:
+  *   2.5 mV/°C
+  *   25°C === 0.76V
+  * Thus:
+  *  temp [°C] = (temp[V]-0,76 [V])/0,0025 [V/°C] +25 [°C]
+  */
+void cmd_Temperature(BaseSequentialStream *chp, int argc, char *argv[]) {
+
+  (void)argv;
+  int thisTemp;
+  if (argc >0 ) {
+    chprintf(chp, "Usage: temp\r\n");
+    return;
+  }
+  if(!running){
+    chprintf(chp, "No Background conversion running\r\n");
+    return;
+  }
+  //Get the last used pointer
+  int myp1 =  (p1-1+BUFFLEN)%BUFFLEN;
+  //Convert to Voltage and then to °C
+  thisTemp = (((int64_t)temp[myp1])*VREFINT*400/VREFMeasured-30400)+2500;
+  chprintf(chp, "Temperatur: %d.%2U°C\r\n", thisTemp/100,thisTemp%100);
+  //temp[p1];
+}
+
+ /*
   * prints and sets the measured value for VREFint
   */
 void cmd_Vref(BaseSequentialStream *chp, int argc, char *argv[]) {

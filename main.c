@@ -57,6 +57,8 @@ static const ShellCommand commands[] = {
   {"ma", cmd_measureA},
   {"vref", cmd_Vref},
   {"v", cmd_Vref},
+  {"temperature", cmd_Temperature},
+  {"te", cmd_Temperature},
   {"measureDirect", cmd_measureDirect},
   {"md", cmd_measureDirect},
   {"measureContinuous", cmd_measureCont},
