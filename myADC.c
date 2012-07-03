@@ -1,3 +1,4 @@
+#include <stdlib.h>
 
 #include "ch.h"
 #include "hal.h"
@@ -28,9 +29,20 @@ static adcsample_t samples1[ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH];
 /*
  * Defines for continuous scan conversions
  */
-#define ADC_GRP2_NUM_CHANNELS   8
+#define ADC_GRP2_NUM_CHANNELS   10
 #define ADC_GRP2_BUF_DEPTH      1024
 static adcsample_t samples2[ADC_GRP2_NUM_CHANNELS * ADC_GRP2_BUF_DEPTH];
+
+
+/*
+ * Internal Reference Voltage, according to ST this is 1.21V typical
+ * with -40°C<T<+105°C its Min: 1.18V, Typ 1.21V, Max: 1.24V
+ */
+#define VREFINT 121
+/*
+ * The measured Value is initialized to 2^16/3V*2.21V
+ */
+uint32_t VREFMeasured = 26433;
 
 /*
  * second storage ring buffer for continuous scan
@@ -39,6 +51,8 @@ static adcsample_t samples2[ADC_GRP2_NUM_CHANNELS * ADC_GRP2_BUF_DEPTH];
 unsigned int p1=0,p2=0;
 unsigned int overflow=0;
 unsigned long data[BUFFLEN];
+unsigned long vref[BUFFLEN];
+unsigned long temp[BUFFLEN];
 
 /*
  * Error callback, does nothing
@@ -133,6 +147,23 @@ void cmd_measureDirect(BaseSequentialStream *chp, int argc, char *argv[]) {
 }
 
  /*
+  * prints and sets the measured value for VREFint
+  */
+void cmd_Vref(BaseSequentialStream *chp, int argc, char *argv[]) {
+
+  (void)argv;
+  if (argc >1 ) {
+    chprintf(chp, "Usage: vref [newValue]\r\n");
+    return;
+  }
+  chprintf(chp, "VREFmeasured: %U\r\n", VREFMeasured);
+  chprintf(chp, "VREFInt: %U.%2UV\r\n", VREFINT/100,VREFINT%100);
+  if(argc==1){
+    VREFMeasured = atoi(argv[0]);
+  }
+}
+
+ /*
   * averages ADC_GRP1_BUF_DEPTH samples and converts to analog voltage
   */
 void cmd_measureA(BaseSequentialStream *chp, int argc, char *argv[]) {
@@ -161,8 +192,14 @@ void cmd_measureA(BaseSequentialStream *chp, int argc, char *argv[]) {
    *  This is no proper calibration!!
    *  The uint64_t cast prevents overflows
    */
+  //Using 2^16 === 3V
   //sum = ((uint64_t)sum)/(ADC_GRP1_BUF_DEPTH/16)*30000/65536;
-  sum = (((uint64_t)sum)*1875)>>22;  //This is the inlined version of the above
+  //sum = (((uint64_t)sum)*1875)>>22;  //This is the inlined version of the above
+
+  //Using VREFMeasured === VREFINT
+  //sum = ((uint64_t)sum)/(ADC_GRP1_BUF_DEPTH/16)*VREFINT/VREFMeasured;
+  sum = ((uint64_t)sum)*VREFINT/(ADC_GRP1_BUF_DEPTH/16*VREFMeasured/100);
+
   //prints the averaged value with 4 digits precision
   chprintf(chp, "Measured: %U.%04UV\r\n", sum/10000, sum%10000);
 }
@@ -180,20 +217,37 @@ static void adccallback(ADCDriver *adcp, adcsample_t *buffer, size_t n) {
   (void)adcp;
   (void)n;
 
-  unsigned int i;
+  unsigned int i,j;
   uint32_t sum=0;
+  uint32_t vrefSum=0;
+  uint32_t tempSum=0;
   if (samples2 == buffer) {
-    for(i=0;i<ADC_GRP2_BUF_DEPTH*ADC_GRP2_NUM_CHANNELS/2;i++){
-      sum+=buffer[i];
+    for(i=0;i<ADC_GRP2_BUF_DEPTH/2;i++){
+      for (j=0;j<8;j++){
+        sum+=buffer[i*ADC_GRP2_NUM_CHANNELS+j];
+      }
+      vrefSum +=buffer[i*ADC_GRP2_NUM_CHANNELS+8];
+      tempSum +=buffer[i*ADC_GRP2_NUM_CHANNELS+9];
     }
-    data[p1++] = sum/(ADC_GRP2_BUF_DEPTH/4);
+    vref[p1] = vrefSum/(ADC_GRP2_BUF_DEPTH/4/8);
+    temp[p1] = tempSum/(ADC_GRP2_BUF_DEPTH/4/8);
+    data[p1] = sum/(ADC_GRP2_BUF_DEPTH/4);
   }
   else {
-    for(i=0;i<ADC_GRP2_BUF_DEPTH*ADC_GRP2_NUM_CHANNELS/2;i++){
-      sum+=buffer[i];
+    for(i=0;i<ADC_GRP2_BUF_DEPTH/2;i++){
+      for (j=0;j<8;j++){
+        sum+=buffer[i*ADC_GRP2_NUM_CHANNELS+j];
+      }
+      vrefSum +=buffer[i*ADC_GRP2_NUM_CHANNELS+8];
+      tempSum +=buffer[i*ADC_GRP2_NUM_CHANNELS+9];
     }
-    data[p1++] = sum/(ADC_GRP2_BUF_DEPTH/4);
+    vref[p1] = vrefSum/(ADC_GRP2_BUF_DEPTH/4/8);
+    temp[p1] = tempSum/(ADC_GRP2_BUF_DEPTH/4/8);
+    data[p1] = sum/(ADC_GRP2_BUF_DEPTH/4);
   }
+  // Only propagate 1/4th of the measured value to average VREF further
+  VREFMeasured = (VREFMeasured*3+vref[p1])>>2;
+  ++p1;
   p1 = p1%BUFFLEN;
   if(p1==p2) ++overflow;
 }
@@ -206,10 +260,13 @@ static const ADCConversionGroup adcgrpcfg2 = {
   adcerrorcallback,         //Error callback
   0,                        /* CR1 */
   ADC_CR2_SWSTART,          /* CR2 */
-  ADC_SMPR1_SMP_AN12(ADC_SAMPLE_480) | ADC_SMPR1_SMP_AN11(ADC_SAMPLE_480),  //sample times ch10-18
+  ADC_SMPR1_SMP_AN12(ADC_SAMPLE_480) | ADC_SMPR1_SMP_AN11(ADC_SAMPLE_480) |
+  ADC_SMPR1_SMP_SENSOR(ADC_SAMPLE_480) | ADC_SMPR1_SMP_VREF(ADC_SAMPLE_480),  //sample times ch10-18
   0,                                                                        //sample times ch0-9
   ADC_SQR1_NUM_CH(ADC_GRP2_NUM_CHANNELS),                                   //SQR1: Conversion group sequence 13...16 + sequence length
-  ADC_SQR2_SQ8_N(ADC_CHANNEL_IN11)   | ADC_SQR2_SQ7_N(ADC_CHANNEL_IN11),    //SQR2: Conversion group sequence 7...12
+//  ADC_SQR2_SQ8_N(ADC_CHANNEL_IN11)   | ADC_SQR2_SQ7_N(ADC_CHANNEL_IN11),    //SQR2: Conversion group sequence 7...12
+  ADC_SQR2_SQ10_N(ADC_CHANNEL_SENSOR) | ADC_SQR2_SQ9_N(ADC_CHANNEL_VREFINT) |
+  ADC_SQR2_SQ8_N(ADC_CHANNEL_IN11)   | ADC_SQR2_SQ7_N(ADC_CHANNEL_IN11) ,
   ADC_SQR3_SQ6_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ5_N(ADC_CHANNEL_IN11) |
   ADC_SQR3_SQ4_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ3_N(ADC_CHANNEL_IN11) |
   ADC_SQR3_SQ2_N(ADC_CHANNEL_IN11)   | ADC_SQR3_SQ1_N(ADC_CHANNEL_IN11)     //SQR3: Conversion group sequence 1...6
@@ -254,7 +311,7 @@ void cmd_measureRead(BaseSequentialStream *chp, int argc, char *argv[]) {
   (void)argc;
   (void)argv;
   while(p1!=p2){
-    chprintf(chp, "%U:%U  ", p2, data[p2]);
+    chprintf(chp, "%U:%U-%U-%U  ", p2, data[p2], vref[p2], temp[p2]);
     if (data[p2]==0){
       chprintf(chp, "\r\n Error!\r\n  ", p2, data[p2]);
     }
@@ -271,6 +328,6 @@ void myADCinit(void){
   palSetGroupMode(GPIOC, PAL_PORT_BIT(1),
                   0, PAL_MODE_INPUT_ANALOG);
   adcStart(&ADCD1, NULL);
-  //enable temperature sensor
-  //adcSTM32EnableTSVREFE();
+  //enable temperature sensor and Vref
+  adcSTM32EnableTSVREFE();
 }
