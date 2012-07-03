@@ -63,6 +63,7 @@ static void adcerrorcallback(ADCDriver *adcp, adcerror_t err) {
   (void)err;
   if(running){
     data[p1++]=0;
+    overflow++;
   }
 }
 
@@ -249,30 +250,18 @@ static void adccallback(ADCDriver *adcp, adcsample_t *buffer, size_t n) {
   uint32_t sum=0;
   uint32_t vrefSum=0;
   uint32_t tempSum=0;
-  if (samples2 == buffer) {
-    for(i=0;i<ADC_GRP2_BUF_DEPTH/2;i++){
-      for (j=0;j<8;j++){
-        sum+=buffer[i*ADC_GRP2_NUM_CHANNELS+j];
-      }
-      vrefSum +=buffer[i*ADC_GRP2_NUM_CHANNELS+8];
-      tempSum +=buffer[i*ADC_GRP2_NUM_CHANNELS+9];
+  if(n != ADC_GRP2_BUF_DEPTH/2) overflow++;
+  for(i=0;i<ADC_GRP2_BUF_DEPTH/2;i++){
+    for (j=0;j<8;j++){
+      sum+=buffer[i*ADC_GRP2_NUM_CHANNELS+j];
     }
-    vref[p1] = vrefSum/(ADC_GRP2_BUF_DEPTH/4/8);
-    temp[p1] = tempSum/(ADC_GRP2_BUF_DEPTH/4/8);
-    data[p1] = sum/(ADC_GRP2_BUF_DEPTH/4);
+    vrefSum +=buffer[i*ADC_GRP2_NUM_CHANNELS+8];
+    tempSum +=buffer[i*ADC_GRP2_NUM_CHANNELS+9];
   }
-  else {
-    for(i=0;i<ADC_GRP2_BUF_DEPTH/2;i++){
-      for (j=0;j<8;j++){
-        sum+=buffer[i*ADC_GRP2_NUM_CHANNELS+j];
-      }
-      vrefSum +=buffer[i*ADC_GRP2_NUM_CHANNELS+8];
-      tempSum +=buffer[i*ADC_GRP2_NUM_CHANNELS+9];
-    }
-    vref[p1] = vrefSum/(ADC_GRP2_BUF_DEPTH/4/8);
-    temp[p1] = tempSum/(ADC_GRP2_BUF_DEPTH/4/8);
-    data[p1] = sum/(ADC_GRP2_BUF_DEPTH/4);
-  }
+  vref[p1] = vrefSum/(ADC_GRP2_BUF_DEPTH/4/8);
+  temp[p1] = tempSum/(ADC_GRP2_BUF_DEPTH/4/8);
+  data[p1] = sum/(ADC_GRP2_BUF_DEPTH/4);
+
   // Only propagate 1/4th of the measured value to average VREF further
   VREFMeasured = (VREFMeasured*3+vref[p1])>>2;
   ++p1;
